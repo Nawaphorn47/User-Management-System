@@ -2,7 +2,33 @@
 const router = require('express').Router();
 const userController = require('../controllers/userController');
 const { authenticate, authorize } = require('../middlewares/auth');
-const { updateUserValidation } = require('../middlewares/validate');
+const { updateUserValidation, registerValidation } = require('../middlewares/validate');
+
+/**
+ * @swagger
+ * /api/users:
+ *   post:
+ *     summary: Create a new user (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email, password]
+ *             properties:
+ *               name: { type: string }
+ *               email: { type: string }
+ *               password: { type: string }
+ *               role: { type: string, enum: [admin, user] }
+ *     responses:
+ *       201: { description: User created }
+ *       409: { description: Email already exists }
+ */
+router.post('/', authenticate, authorize('admin'), registerValidation, userController.createUser);
 
 /**
  * @swagger

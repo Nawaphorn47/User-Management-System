@@ -2,6 +2,16 @@
 const userService = require('../services/userService');
 const { createSuccessResponse, createPaginatedResponse } = require('../utils/response');
 
+const createUser = async (req, res, next) => {
+  try {
+    const authService = require('../services/authService');
+    const user = await authService.register(req.body);
+    return res.status(201).json(createSuccessResponse({ user }, 'User created successfully'));
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getUsers = async (req, res, next) => {
   try {
     const { page, limit, search, role, sort, order } = req.query;
@@ -64,4 +74,4 @@ const updateStatus = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, getUserById, updateUser, deleteUser, updateStatus };
+module.exports = { createUser, getUsers, getUserById, updateUser, deleteUser, updateStatus };
