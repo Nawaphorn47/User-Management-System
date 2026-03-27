@@ -17,8 +17,9 @@ const app = express();
 app.use(helmet());
 
 // CORS
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',').map(o => o.trim());
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -50,15 +51,37 @@ const PORT = parseInt(process.env.PORT) || 3000;
 const start = async () => {
   try {
     await sequelize.authenticate();
-    console.log('Database connected');
+    console.log('✅ Database connected');
     await sequelize.sync({ alter: true });
-    console.log('Models synced');
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    console.log('✅ Models synced');
+
+    // Log registered routes (debug)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('\n📋 Registered routes:');
+      app._router.stack
+        .filter(r => r.name === 'router')
+        .forEach(r => {
+          r.handle.stack.forEach(layer => {
+            if (layer.route) {
+              const methods = Object.keys(layer.route.methods).map(m => m.toUpperCase()).join(', ');
+              console.log(`  ${methods} ${layer.route.path}`);
+            }
+          });
+        });
+      console.log('');
+    }
+
+    app.use((req, res) => {
+      res.status(404).json(createErrorResponse('Route not found', null, 404));
+    });
+
+    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   } catch (err) {
-    console.error('Failed to start:', err);
+    console.error('❌ Failed to start:', err);
     process.exit(1);
   }
 };
+
 
 if (require.main === module) {
   start();

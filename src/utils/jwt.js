@@ -7,10 +7,13 @@ const generateAccessToken = (payload) =>
   });
 
 const generateRefreshToken = (payload) =>
-  jwt.sign(payload, process.env.JWT_SECRET, {
+  jwt.sign(payload, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
 
 const verifyToken = (token) => jwt.verify(token, process.env.JWT_SECRET);
 
-module.exports = { generateAccessToken, generateRefreshToken, verifyToken };
+const verifyRefreshToken = (token) =>
+  jwt.verify(token, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+
+module.exports = { generateAccessToken, generateRefreshToken, verifyToken, verifyRefreshToken };

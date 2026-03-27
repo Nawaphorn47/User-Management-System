@@ -9,19 +9,14 @@ const tokenBlacklist = new Set();
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    console.log('Auth Header:', authHeader); // <--- เช็คว่า Header มาไหม
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json(
-        createErrorResponse('Access token required', null, 401)
-      );
+      return res.status(401).json(createErrorResponse('Access token required', null, 401));
     }
 
     const token = authHeader.split(' ')[1];
-
-    if (tokenBlacklist.has(token)) {
-      return res.status(401).json(
-        createErrorResponse('Token has been revoked', null, 401)
-      );
-    }
+    // ... logic อื่นๆ
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findByPk(decoded.id);
@@ -42,6 +37,7 @@ const authenticate = async (req, res, next) => {
     req.token = token;
     next();
   } catch (err) {
+    console.log('Auth Error:', err.message); 
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json(
         createErrorResponse('Token expired', null, 401)

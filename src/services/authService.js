@@ -1,7 +1,7 @@
 'use strict';
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
-const { generateAccessToken, generateRefreshToken, verifyToken } = require('../utils/jwt');
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 
 const SALT_ROUNDS = 10;
 
@@ -55,7 +55,8 @@ const login = async ({ email, password }) => {
 const refreshAccessToken = async (refreshToken) => {
   let decoded;
   try {
-    decoded = verifyToken(refreshToken);
+    // ใช้ verifyRefreshToken แทน verifyToken เพื่อแยก secret
+    decoded = verifyRefreshToken(refreshToken);
   } catch {
     const error = new Error('Invalid or expired refresh token');
     error.statusCode = 401;
@@ -70,6 +71,12 @@ const refreshAccessToken = async (refreshToken) => {
   if (!user || user.refresh_token !== refreshToken) {
     const error = new Error('Refresh token revoked');
     error.statusCode = 401;
+    throw error;
+  }
+
+  if (!user.is_active) {
+    const error = new Error('Account is disabled');
+    error.statusCode = 403;
     throw error;
   }
 
