@@ -1,0 +1,26 @@
+{
+  "development": {
+    "username": "appuser",
+    "password": "changeme",
+    "database": "userdb",
+    "host": "db",
+    "port": 5432,
+    "dialect": "postgres"
+  },
+  "test": {
+    "username": "appuser",
+    "password": "changeme",
+    "database": "userdb_test",
+    "host": "db",
+    "port": 5432,
+    "dialect": "postgres"
+  },
+  "production": {
+    "username": "${DB_USER}",
+    "password": "${DB_PASSWORD}",
+    "database": "${DB_NAME}",
+    "host": "${DB_HOST}",
+    "port": 5432,
+    "dialect": "postgres"
+  }
+}

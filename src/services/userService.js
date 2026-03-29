@@ -86,4 +86,23 @@ const updateStatus = async (id, is_active) => {
   return user;
 };
 
-module.exports = { getUsers, getUserById, updateUser, deleteUser, updateStatus };
+const createUser = async (data) => {
+  const existing = await User.findOne({ where: { email: data.email.toLowerCase() } });
+  if (existing) {
+    const error = new Error('Email already exists');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const hashed = await bcrypt.hash(data.password, SALT_ROUNDS);
+  const user = await User.create({ 
+    name: data.name, 
+    email: data.email, 
+    password: hashed, 
+    role: data.role || 'user' 
+  });
+  
+  return user;
+};
+
+module.exports = { getUsers, getUserById, updateUser, deleteUser, updateStatus, createUser };

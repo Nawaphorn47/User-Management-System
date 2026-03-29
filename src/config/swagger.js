@@ -10,12 +10,18 @@ const options = {
       description: 'RESTful API for User Management System',
     },
     servers: [{ url: `http://localhost:${process.env.PORT || 3000}` }],
+
+    // ✅ Global security — ทุก endpoint จะมีช่อง Authorize อัตโนมัติ
+    // endpoint ที่เป็น public ให้ override ด้วย security: [] ใน JSDoc ของ route นั้น
+    security: [{ bearerAuth: [] }],
+
     components: {
       securitySchemes: {
         bearerAuth: {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
+          description: 'ใส่ accessToken ที่ได้จาก POST /api/auth/login',
         },
       },
       schemas: {
@@ -46,6 +52,15 @@ const options = {
                 },
               },
             },
+            timestamp: { type: 'string', format: 'date-time' },
+          },
+        },
+        SuccessResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string' },
+            data: { type: 'object' },
             timestamp: { type: 'string', format: 'date-time' },
           },
         },
