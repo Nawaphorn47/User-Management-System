@@ -9,7 +9,6 @@ const tokenBlacklist = new Set();
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log('Auth Header:', authHeader); // <--- เช็คว่า Header มาไหม
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json(createErrorResponse('Access token required', null, 401));
@@ -37,7 +36,6 @@ const authenticate = async (req, res, next) => {
     req.token = token;
     next();
   } catch (err) {
-    console.log('Auth Error:', err.message); 
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json(
         createErrorResponse('Token expired', null, 401)
