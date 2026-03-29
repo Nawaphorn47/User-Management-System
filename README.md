@@ -80,23 +80,7 @@ CORS_ORIGIN=http://localhost:3000
 
 ---
 
-## 3. Database Migration & Seed
-
-```bash
-# รัน Migration (สร้างตาราง)
-npm run migrate
-# หรือ: docker compose exec app npm run migrate
-
-# รัน Seed (สร้าง Admin + User เริ่มต้น)
-npm run seed
-# หรือ: docker compose exec app npm run seed
-```
-
-> Migration จะถูกรันอัตโนมัติเมื่อ app เริ่มทำงาน (`sequelize.sync`)
-
----
-
-## 4. รัน Test Suite
+## 3. รัน Test Suite
 
 ```bash
 # รันใน local (ต้องมี DB พร้อม)
@@ -110,7 +94,7 @@ Test ครอบคลุมอย่างน้อย 15 test cases ใน `t
 
 ---
 
-## 5. API Documentation
+## 4. API Documentation
 
 Swagger UI: **http://localhost:3000/api-docs**
 
@@ -118,7 +102,7 @@ Swagger UI: **http://localhost:3000/api-docs**
 
 ---
 
-## 6. Test Accounts (จาก Seed Data)
+## 5. Test Accounts (จาก Seed Data)
 
 | Role  | Email                | Password   |
 |-------|----------------------|------------|
@@ -126,7 +110,7 @@ Swagger UI: **http://localhost:3000/api-docs**
 
 ---
 
-## 7. API Endpoints สรุป
+## 6. API Endpoints สรุป
 
 ### Auth
 | Method | Endpoint              | Auth     | คำอธิบาย |
@@ -153,7 +137,7 @@ Swagger UI: **http://localhost:3000/api-docs**
 
 ---
 
-## 8. Security Features
+## 7. Security Features
 
 - **bcrypt** salt rounds = 10 สำหรับ password hashing
 - **JWT** Access Token อายุ 15 นาที / Refresh Token อายุ 7 วัน
