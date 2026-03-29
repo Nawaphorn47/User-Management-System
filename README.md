@@ -35,6 +35,18 @@ cp .env.example .env
 # 3. รัน (build + start ทุก services)
 docker compose up --build
 
+4. จัดการโครงสร้างฐานข้อมูล (Database Setup)
+เมื่อ Container รันแล้ว ให้รันคำสั่งเหล่านี้เพื่อสร้างตารางและข้อมูลตั้งต้น:
+
+สร้างตาราง (Migration):
+
+Bash
+docker exec -it user-management-app-1 npx sequelize-cli db:migrate
+สร้างข้อมูล Admin คนแรก (Seeding):
+
+Bash
+docker exec -it user-management-app-1 npx sequelize-cli db:seed:all
+
 # API พร้อมใช้งานที่ http://localhost:3000
 # Swagger UI ที่       http://localhost:3000/api-docs
 # Adminer (DB GUI) ที่  http://localhost:8080
@@ -110,8 +122,7 @@ Swagger UI: **http://localhost:3000/api-docs**
 
 | Role  | Email                | Password   |
 |-------|----------------------|------------|
-| Admin | admin@example.com    | Admin1234  |
-| User  | user@example.com     | User1234   |
+| Admin | admin@system.com     | admin1234  |
 
 ---
 
