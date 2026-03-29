@@ -87,9 +87,32 @@ router.get('/:id', authenticate, userController.getUserById);
 
 /**
  * @swagger
+ * /api/users/me:
+ *   put:
+ *     summary: Update own profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: "New name of the user"
+ *     responses:
+ *       200: { description: Profile updated successfully }
+ *       401: { description: Unauthorized }
+ */
+router.put('/me', authenticate, userController.updateMe);
+
+/**
+ * @swagger
  * /api/users/{id}:
  *   put:
- *     summary: Update user (Admin or own account)
+ *     summary: Update user (Admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -105,15 +128,14 @@ router.get('/:id', authenticate, userController.getUserById);
  *             type: object
  *             properties:
  *               name: { type: string }
- *               email: { type: string }
- *               password: { type: string }
  *               role: { type: string, enum: [admin, user] }
+ *               status: { type: boolean }
  *     responses:
- *       200: { description: User updated }
+ *       200: { description: User updated successfully }
  *       403: { description: Forbidden }
  *       404: { description: Not found }
  */
-router.put('/:id', authenticate, updateUserValidation, userController.updateUser);
+router.put('/:id', authenticate, authorize('admin'), userController.updateUser);
 
 /**
  * @swagger

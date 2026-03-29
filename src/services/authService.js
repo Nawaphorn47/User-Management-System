@@ -14,7 +14,7 @@ const register = async ({ name, email, password, role }) => {
   }
 
   const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-  const user = await User.create({ name, email, password: hashed, role: role || 'user' });
+  const user = await User.create({ name, email, password: hashed, role: 'user' });
   return user;
 };
 
