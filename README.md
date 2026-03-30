@@ -56,17 +56,17 @@ DB_HOST=db
 DB_PORT=5432
 DB_NAME=userdb
 DB_USER=appuser
-DB_PASSWORD=changeme          # ← เปลี่ยนใน Production
+DB_PASSWORD=changeme
 
 # JWT
-JWT_SECRET=your-super-secret          # ← เปลี่ยนเป็นค่าที่ยาวและสุ่ม
-JWT_REFRESH_SECRET=your-refresh-secret # ← แยก secret สำหรับ refresh token
+JWT_SECRET=your-super-secret
+JWT_REFRESH_SECRET=your-refresh-secret
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 
 # Rate Limiting
-RATE_LIMIT_WINDOW_MS=60000    # 1 นาที
-RATE_LIMIT_MAX=5              # สูงสุด 5 ครั้ง/นาที สำหรับ /api/auth/login
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=5
 
 # CORS
 CORS_ORIGIN=http://localhost:3000
@@ -76,8 +76,6 @@ CORS_ORIGIN=http://localhost:3000
 
 ## 3. Database Migration & Seed
 
-Migration จะถูกรันอัตโนมัติผ่าน sequelize-cli ตอน start:
-
 ```bash
 # รัน Migration (สร้างตาราง)
 docker compose exec app npx sequelize-cli db:migrate
@@ -85,7 +83,7 @@ docker compose exec app npx sequelize-cli db:migrate
 # รัน Seed (สร้าง Admin เริ่มต้น)
 docker compose exec app npx sequelize-cli db:seed:all
 
-# ย้อน Migration (ถ้าต้องการ)
+# ย้อน Migration
 docker compose exec app npx sequelize-cli db:migrate:undo
 ```
 
@@ -97,11 +95,11 @@ docker compose exec app npx sequelize-cli db:migrate:undo
 # รันใน Docker
 docker compose exec app npm test
 
-# รันใน local (ต้องมี DB พร้อม)
+# รันใน local
 npm test
 ```
 
-Test ครอบคลุมอย่างน้อย 15 test cases ใน `tests/`
+Test ครอบคลุม 40 test cases ใน `tests/auth.test.js`
 
 ---
 
@@ -109,7 +107,7 @@ Test ครอบคลุมอย่างน้อย 15 test cases ใน `t
 
 Swagger UI: **http://localhost:3000/api-docs**
 
-ทุก Endpoint ที่ต้อง Auth ใช้ **Bearer Token** — กด `Authorize` แล้วใส่ `accessToken` ที่ได้จาก `POST /api/auth/login`
+กด `Authorize` แล้วใส่ `accessToken` ที่ได้จาก `POST /api/auth/login`
 
 ---
 
@@ -119,17 +117,17 @@ Swagger UI: **http://localhost:3000/api-docs**
 |---|---|---|
 | Admin | admin@system.com | admin1234 |
 
-> **หมายเหตุ:** User ทั่วไปสมัครได้ผ่าน `POST /api/auth/register` — role จะเป็น `user` เสมอ ไม่สามารถกำหนด role ตอนสมัครได้
+> User ทั่วไปสมัครได้ผ่าน `POST /api/auth/register` — role จะเป็น `user` เสมอ
 
 ---
 
-## 7. API Endpoints สรุป
+## 7. API Endpoints
 
 ### Auth
 
 | Method | Endpoint | Auth | คำอธิบาย |
 |---|---|---|---|
-| POST | /api/auth/register | Public | สมัครสมาชิก (role = user เสมอ) |
+| POST | /api/auth/register | Public | สมัครสมาชิก |
 | POST | /api/auth/login | Public | เข้าสู่ระบบ (Rate limit 5/นาที) |
 | POST | /api/auth/logout | Required | ออกจากระบบ + Blacklist token |
 | GET | /api/auth/me | Required | ดูข้อมูลตัวเอง |
@@ -139,11 +137,9 @@ Swagger UI: **http://localhost:3000/api-docs**
 
 | Method | Endpoint | Auth | คำอธิบาย |
 |---|---|---|---|
-| POST | /api/users | Admin | สร้าง User ใหม่ |
 | GET | /api/users | Admin | รายการผู้ใช้ (Pagination + Filter) |
 | GET | /api/users/:id | Admin/Owner | ดูข้อมูลผู้ใช้ |
-| PUT | /api/users/me | Login | แก้ไขข้อมูลตัวเอง (name เท่านั้น) |
-| PUT | /api/users/:id | Admin | แก้ไขข้อมูลผู้ใช้ (name, role) |
+| PUT | /api/users/:id | Admin/Owner | แก้ไขข้อมูล (admin เปลี่ยน role ได้, user ทำไม่ได้) |
 | DELETE | /api/users/:id | Admin | ลบผู้ใช้ |
 | PATCH | /api/users/:id/status | Admin | เปิด/ปิด account |
 
@@ -153,71 +149,18 @@ Swagger UI: **http://localhost:3000/api-docs**
 ?page=1&limit=10&search=alice&role=user&sort=createdAt&order=desc
 ```
 
-| Parameter | Default | หมายเหตุ |
-|---|---|---|
-| page | 1 | หน้าที่ต้องการ |
-| limit | 10 | จำนวนต่อหน้า (max 100) |
-| search | - | ค้นหาจาก name หรือ email |
-| role | - | กรอง admin / user |
-| sort | createdAt | createdAt / name / email |
-| order | desc | asc / desc |
-
 ---
 
 ## 8. Security Features
 
 | Feature | รายละเอียด |
 |---|---|
-| bcrypt | salt rounds = 10 สำหรับ password hashing |
-| JWT | Access Token 15 นาที / Refresh Token 7 วัน |
+| bcrypt | salt rounds = 10 |
+| JWT | Access Token 15m / Refresh Token 7d |
 | JWT Secret | แยก secret สำหรับ access และ refresh token |
-| Token Blacklist | Blacklist token ใน memory เมื่อ logout |
-| Rate Limiting | `/api/auth/login` สูงสุด 5 ครั้ง/นาที |
+| Token Blacklist | Blacklist token เมื่อ logout |
+| Rate Limiting | /api/auth/login สูงสุด 5 ครั้ง/นาที |
 | Helmet.js | HTTP Security Headers |
-| RBAC | admin จัดการทุกคนได้ / user แก้ได้เฉพาะตัวเอง |
-| Privilege Escalation | ล็อก role = 'user' ตอน register เสมอ |
-| Mass Assignment | Whitelist field ใน controller ทุกจุด |
+| RBAC | admin จัดการทุกคน / user แก้ได้เฉพาะตัวเอง |
+| Role Lock | register ล็อก role = user เสมอ |
 | Sensitive Fields | ไม่ส่ง password / refresh_token กลับใน Response |
-
----
-
-## 9. โครงสร้าง Project
-
-```
-User-Management-System/
-├── src/
-│   ├── config/
-│   │   ├── database.js       # Sequelize connection
-│   │   ├── database.json     # sequelize-cli config
-│   │   └── swagger.js        # Swagger spec
-│   ├── controllers/
-│   │   ├── authController.js
-│   │   └── userController.js
-│   ├── middlewares/
-│   │   ├── auth.js           # authenticate + authorize
-│   │   ├── errorHandler.js
-│   │   └── validate.js
-│   ├── models/
-│   │   └── User.js
-│   ├── routes/
-│   │   ├── auth.js
-│   │   └── users.js
-│   ├── services/
-│   │   ├── authService.js
-│   │   └── userService.js
-│   ├── utils/
-│   │   ├── jwt.js
-│   │   └── response.js
-│   └── app.js
-├── migrations/
-│   └── XXXXXXXXXXXXXX-create-users-table.js
-├── seeders/
-│   └── XXXXXXXXXXXXXX-god-admin.js
-├── tests/
-│   └── auth.test.js
-├── .env.example
-├── .sequelizerc
-├── docker-compose.yml
-├── Dockerfile
-└── README.md
-```

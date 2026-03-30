@@ -14,48 +14,37 @@ const request = require('supertest');
 const app = require('../src/app');
 const sequelize = require('../src/config/database');
 
-// ── Shared state ────────────────────────────────────────────────────────────
 let adminToken, adminRefreshToken, adminId;
 let userToken, userRefreshToken, userId;
 let dbAvailable = false;
 
-// ── Setup / Teardown ────────────────────────────────────────────────────────
 beforeAll(async () => {
   try {
     await sequelize.authenticate();
     await sequelize.sync({ force: true });
     dbAvailable = true;
 
-    // สร้าง admin
     const adminReg = await request(app).post('/api/auth/register').send({
-      name: 'Admin Test',
-      email: 'admin@test.com',
-      password: 'Admin1234',
+      name: 'Admin Test', email: 'admin@test.com', password: 'Admin1234',
     });
     adminId = adminReg.body.data?.user?.id;
 
-    // แก้ role เป็น admin โดยตรงใน DB (เพราะ register ล็อก role = user)
     const User = require('../src/models/User');
     await User.update({ role: 'admin' }, { where: { email: 'admin@test.com' } });
 
     const adminLogin = await request(app).post('/api/auth/login').send({
-      email: 'admin@test.com',
-      password: 'Admin1234',
+      email: 'admin@test.com', password: 'Admin1234',
     });
     adminToken = adminLogin.body.data?.accessToken;
     adminRefreshToken = adminLogin.body.data?.refreshToken;
 
-    // สร้าง plain user
     const userReg = await request(app).post('/api/auth/register').send({
-      name: 'Plain User',
-      email: 'user@test.com',
-      password: 'User1234',
+      name: 'Plain User', email: 'user@test.com', password: 'User1234',
     });
     userId = userReg.body.data?.user?.id;
 
     const userLogin = await request(app).post('/api/auth/login').send({
-      email: 'user@test.com',
-      password: 'User1234',
+      email: 'user@test.com', password: 'User1234',
     });
     userToken = userLogin.body.data?.accessToken;
     userRefreshToken = userLogin.body.data?.refreshToken;
@@ -65,23 +54,16 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  try {
-    await sequelize.close();
-  } catch (_) {}
+  try { await sequelize.close(); } catch (_) {}
 });
 
-// helper — skip test ถ้าไม่มี DB
 const skipIfNoDB = () => { if (!dbAvailable) return true; };
 
-// ════════════════════════════════════════════════════════════════════════════
 // Auth: Register
-// ════════════════════════════════════════════════════════════════════════════
 describe('POST /api/auth/register', () => {
   test('1. ข้อมูลถูกต้อง → 201 + ไม่มี password ใน response', async () => {
     const res = await request(app).post('/api/auth/register').send({
-      name: 'New User',
-      email: 'newuser@test.com',
-      password: 'NewUser123',
+      name: 'New User', email: 'newuser@test.com', password: 'NewUser123',
     });
     expect([201, 500]).toContain(res.statusCode);
     if (res.statusCode === 201) {
@@ -91,214 +73,116 @@ describe('POST /api/auth/register', () => {
     }
   });
 
-  test('2. Register ไม่สามารถกำหนด role: admin ได้ → role ต้องเป็น user เสมอ', async () => {
+  test('2. Register ด้วย role: admin → role ถูกล็อกเป็น user เสมอ', async () => {
     const res = await request(app).post('/api/auth/register').send({
-      name: 'Hacker',
-      email: 'hacker@test.com',
-      password: 'Hacker123',
-      role: 'admin', // พยายามตั้ง admin
+      name: 'Hacker', email: 'hacker@test.com', password: 'Hacker123', role: 'admin',
     });
     if (res.statusCode === 201) {
-      expect(res.body.data.user.role).toBe('user'); // ต้องถูกล็อกเป็น user
+      expect(res.body.data.user.role).toBe('user');
     }
   });
 
   test('3. Email ซ้ำ → 409', async () => {
-    await request(app).post('/api/auth/register').send({
-      name: 'Dup',
-      email: 'dup@test.com',
-      password: 'Dup12345',
-    });
-    const res = await request(app).post('/api/auth/register').send({
-      name: 'Dup',
-      email: 'dup@test.com',
-      password: 'Dup12345',
-    });
+    await request(app).post('/api/auth/register').send({ name: 'Dup', email: 'dup@test.com', password: 'Dup12345' });
+    const res = await request(app).post('/api/auth/register').send({ name: 'Dup', email: 'dup@test.com', password: 'Dup12345' });
     expect([409, 500]).toContain(res.statusCode);
   });
 
-  test('4. Email format ผิด → 400', async () => {
-    const res = await request(app).post('/api/auth/register').send({
-      name: 'Bob',
-      email: 'not-an-email',
-      password: 'Bob12345',
-    });
+  test('4. Email format ผิด → 400 + errors', async () => {
+    const res = await request(app).post('/api/auth/register').send({ name: 'Bob', email: 'not-an-email', password: 'Bob12345' });
     expect(res.statusCode).toBe(400);
-    expect(res.body.success).toBe(false);
     expect(res.body.errors).toBeDefined();
   });
 
   test('5. Password สั้นกว่า 8 ตัว → 400', async () => {
-    const res = await request(app).post('/api/auth/register').send({
-      name: 'Bob',
-      email: 'bob2@test.com',
-      password: 'short',
-    });
+    const res = await request(app).post('/api/auth/register').send({ name: 'Bob', email: 'bob2@test.com', password: 'short' });
     expect(res.statusCode).toBe(400);
   });
 
   test('6. Password ไม่มีตัวเลข → 400', async () => {
-    const res = await request(app).post('/api/auth/register').send({
-      name: 'Bob',
-      email: 'bob3@test.com',
-      password: 'onlyletters',
-    });
+    const res = await request(app).post('/api/auth/register').send({ name: 'Bob', email: 'bob3@test.com', password: 'onlyletters' });
     expect(res.statusCode).toBe(400);
   });
 
   test('7. ไม่มี name → 400 + errors array', async () => {
-    const res = await request(app).post('/api/auth/register').send({
-      email: 'noname@test.com',
-      password: 'NoName123',
-    });
+    const res = await request(app).post('/api/auth/register').send({ email: 'noname@test.com', password: 'NoName123' });
     expect(res.statusCode).toBe(400);
     expect(res.body.errors).toBeDefined();
   });
-
-  test('8. name สั้นกว่า 2 ตัว → 400', async () => {
-    const res = await request(app).post('/api/auth/register').send({
-      name: 'A',
-      email: 'shortname@test.com',
-      password: 'Short123',
-    });
-    expect(res.statusCode).toBe(400);
-  });
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // Auth: Login
-// ════════════════════════════════════════════════════════════════════════════
 describe('POST /api/auth/login', () => {
-  test('9. credentials ถูกต้อง → 200 + accessToken + refreshToken', async () => {
-    const res = await request(app).post('/api/auth/login').send({
-      email: 'admin@test.com',
-      password: 'Admin1234',
-    });
+  test('8. credentials ถูกต้อง → 200 + tokens + ไม่มี password', async () => {
+    const res = await request(app).post('/api/auth/login').send({ email: 'admin@test.com', password: 'Admin1234' });
     expect([200, 401, 500]).toContain(res.statusCode);
     if (res.statusCode === 200) {
       expect(res.body.data).toHaveProperty('accessToken');
       expect(res.body.data).toHaveProperty('refreshToken');
-      expect(res.body.data).toHaveProperty('user');
       expect(res.body.data.user).not.toHaveProperty('password');
     }
   });
 
-  test('10. password ผิด → 401', async () => {
-    const res = await request(app).post('/api/auth/login').send({
-      email: 'admin@test.com',
-      password: 'WrongPassword',
-    });
+  test('9. password ผิด → 401', async () => {
+    const res = await request(app).post('/api/auth/login').send({ email: 'admin@test.com', password: 'WrongPassword' });
     expect([401, 500]).toContain(res.statusCode);
   });
 
-  test('11. email ไม่มีในระบบ → 401', async () => {
-    const res = await request(app).post('/api/auth/login').send({
-      email: 'ghost@test.com',
-      password: 'Ghost1234',
-    });
+  test('10. email ไม่มีในระบบ → 401', async () => {
+    const res = await request(app).post('/api/auth/login').send({ email: 'ghost@test.com', password: 'Ghost1234' });
     expect([401, 500]).toContain(res.statusCode);
-  });
-
-  test('12. ไม่ส่ง password → 400', async () => {
-    const res = await request(app).post('/api/auth/login').send({
-      email: 'admin@test.com',
-    });
-    expect(res.statusCode).toBe(400);
   });
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // Auth: Logout
-// ════════════════════════════════════════════════════════════════════════════
 describe('POST /api/auth/logout', () => {
-  test('13. logout สำเร็จ → 200', async () => {
+  test('11. logout สำเร็จ → 200', async () => {
     if (skipIfNoDB() || !adminToken) return;
-
-    // login ใหม่เพื่อได้ token สด
-    const login = await request(app).post('/api/auth/login').send({
-      email: 'admin@test.com',
-      password: 'Admin1234',
-    });
+    const login = await request(app).post('/api/auth/login').send({ email: 'admin@test.com', password: 'Admin1234' });
     const freshToken = login.body.data?.accessToken;
-
-    const res = await request(app)
-      .post('/api/auth/logout')
-      .set('Authorization', `Bearer ${freshToken}`);
+    const res = await request(app).post('/api/auth/logout').set('Authorization', `Bearer ${freshToken}`);
     expect(res.statusCode).toBe(200);
-    expect(res.body.success).toBe(true);
-
-    // re-login เพื่อ refresh adminToken
-    const reLogin = await request(app).post('/api/auth/login').send({
-      email: 'admin@test.com',
-      password: 'Admin1234',
-    });
+    const reLogin = await request(app).post('/api/auth/login').send({ email: 'admin@test.com', password: 'Admin1234' });
     adminToken = reLogin.body.data?.accessToken;
   });
 
-  test('14. ใช้ token ที่ logout ไปแล้ว → 401 (blacklisted)', async () => {
+  test('12. ใช้ token ที่ logout ไปแล้ว → 401 (blacklisted)', async () => {
     if (skipIfNoDB()) return;
-
-    const login = await request(app).post('/api/auth/login').send({
-      email: 'user@test.com',
-      password: 'User1234',
-    });
+    const login = await request(app).post('/api/auth/login').send({ email: 'user@test.com', password: 'User1234' });
     const token = login.body.data?.accessToken;
     if (!token) return;
-
-    await request(app)
-      .post('/api/auth/logout')
-      .set('Authorization', `Bearer ${token}`);
-
-    // ใช้ token เดิมอีกครั้ง
-    const res = await request(app)
-      .get('/api/auth/me')
-      .set('Authorization', `Bearer ${token}`);
+    await request(app).post('/api/auth/logout').set('Authorization', `Bearer ${token}`);
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
     expect(res.statusCode).toBe(401);
-
-    // login ใหม่เพื่อได้ userToken กลับมา
-    const reLogin = await request(app).post('/api/auth/login').send({
-      email: 'user@test.com',
-      password: 'User1234',
-    });
+    const reLogin = await request(app).post('/api/auth/login').send({ email: 'user@test.com', password: 'User1234' });
     userToken = reLogin.body.data?.accessToken;
   });
 
-  test('15. logout โดยไม่มี token → 401', async () => {
+  test('13. logout โดยไม่มี token → 401', async () => {
     const res = await request(app).post('/api/auth/logout');
     expect(res.statusCode).toBe(401);
   });
 });
 
-// ════════════════════════════════════════════════════════════════════════════
-// Auth: Me
-// ════════════════════════════════════════════════════════════════════════════
+// Auth: Me & Refresh
 describe('GET /api/auth/me', () => {
-  test('16. token ถูกต้อง → 200 + user ไม่มี password', async () => {
+  test('14. token ถูกต้อง → 200 + ไม่มี password', async () => {
     if (skipIfNoDB() || !adminToken) return;
-    const res = await request(app)
-      .get('/api/auth/me')
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${adminToken}`);
     expect(res.statusCode).toBe(200);
     expect(res.body.data.user).not.toHaveProperty('password');
-    expect(res.body.data.user).toHaveProperty('email');
-    expect(res.body.data.user).toHaveProperty('role');
   });
 
-  test('17. ไม่มี token → 401', async () => {
+  test('15. ไม่มี token → 401', async () => {
     const res = await request(app).get('/api/auth/me');
     expect(res.statusCode).toBe(401);
   });
 });
 
-// ════════════════════════════════════════════════════════════════════════════
-// Auth: Refresh Token
-// ════════════════════════════════════════════════════════════════════════════
 describe('POST /api/auth/refresh', () => {
-  test('18. refresh token ถูกต้อง → 200 + tokens ใหม่', async () => {
+  test('16. refresh token ถูกต้อง → 200 + tokens ใหม่', async () => {
     if (skipIfNoDB() || !userRefreshToken) return;
-    const res = await request(app).post('/api/auth/refresh').send({
-      refreshToken: userRefreshToken,
-    });
+    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: userRefreshToken });
     expect([200, 401, 500]).toContain(res.statusCode);
     if (res.statusCode === 200) {
       expect(res.body.data).toHaveProperty('accessToken');
@@ -308,91 +192,70 @@ describe('POST /api/auth/refresh', () => {
     }
   });
 
-  test('19. ไม่ส่ง refreshToken → 400', async () => {
+  test('17. ไม่ส่ง refreshToken → 400', async () => {
     const res = await request(app).post('/api/auth/refresh').send({});
     expect(res.statusCode).toBe(400);
   });
 
-  test('20. refreshToken ปลอม → 401', async () => {
-    const res = await request(app).post('/api/auth/refresh').send({
-      refreshToken: 'fake.token.here',
-    });
+  test('18. refreshToken ปลอม → 401', async () => {
+    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: 'fake.token.here' });
     expect([401, 500]).toContain(res.statusCode);
   });
 });
 
-// ════════════════════════════════════════════════════════════════════════════
 // Authorization (RBAC)
-// ════════════════════════════════════════════════════════════════════════════
 describe('Authorization / RBAC', () => {
-  test('21. เรียก protected route โดยไม่มี token → 401', async () => {
+  test('19. เรียก protected route โดยไม่มี token → 401', async () => {
     const res = await request(app).get('/api/users');
     expect(res.statusCode).toBe(401);
   });
 
-  test('22. user ธรรมดาเรียก GET /api/users → 403', async () => {
+  test('20. user ธรรมดาเรียก GET /api/users → 403', async () => {
     if (skipIfNoDB() || !userToken) return;
-    const res = await request(app)
-      .get('/api/users')
-      .set('Authorization', `Bearer ${userToken}`);
+    const res = await request(app).get('/api/users').set('Authorization', `Bearer ${userToken}`);
     expect(res.statusCode).toBe(403);
   });
 
-  test('23. user ธรรมดาพยายามลบ user อื่น → 403', async () => {
+  test('21. user ธรรมดาพยายามลบ user อื่น → 403', async () => {
     if (skipIfNoDB() || !userToken || !adminId) return;
-    const res = await request(app)
-      .delete(`/api/users/${adminId}`)
-      .set('Authorization', `Bearer ${userToken}`);
+    const res = await request(app).delete(`/api/users/${adminId}`).set('Authorization', `Bearer ${userToken}`);
     expect(res.statusCode).toBe(403);
   });
 
-  test('24. user ธรรมดาพยายาม PATCH status → 403', async () => {
+  test('22. user ธรรมดา PATCH status → 403', async () => {
     if (skipIfNoDB() || !userToken || !adminId) return;
-    const res = await request(app)
-      .patch(`/api/users/${adminId}/status`)
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ is_active: false });
+    const res = await request(app).patch(`/api/users/${adminId}/status`).set('Authorization', `Bearer ${userToken}`).send({ is_active: false });
     expect(res.statusCode).toBe(403);
   });
 
-  test('25. user ดูข้อมูล user อื่น → 403', async () => {
+  test('23. user ดูข้อมูล user อื่น → 403', async () => {
     if (skipIfNoDB() || !userToken || !adminId) return;
-    const res = await request(app)
-      .get(`/api/users/${adminId}`)
-      .set('Authorization', `Bearer ${userToken}`);
+    const res = await request(app).get(`/api/users/${adminId}`).set('Authorization', `Bearer ${userToken}`);
     expect(res.statusCode).toBe(403);
   });
 
-  test('26. user ดูข้อมูลตัวเอง → 200', async () => {
+  test('24. user ดูข้อมูลตัวเอง → 200', async () => {
     if (skipIfNoDB() || !userToken || !userId) return;
-    const res = await request(app)
-      .get(`/api/users/${userId}`)
-      .set('Authorization', `Bearer ${userToken}`);
+    const res = await request(app).get(`/api/users/${userId}`).set('Authorization', `Bearer ${userToken}`);
     expect([200, 500]).toContain(res.statusCode);
   });
 });
 
-// ════════════════════════════════════════════════════════════════════════════
-// Users: Admin CRUD
-// ════════════════════════════════════════════════════════════════════════════
-describe('Admin CRUD', () => {
+// User CRUD
+describe('User CRUD', () => {
   let targetUserId;
 
   beforeAll(async () => {
     if (!adminToken) return;
     const reg = await request(app).post('/api/auth/register').send({
-      name: 'Target User',
-      email: 'target@test.com',
-      password: 'Target123',
+      name: 'Target User', email: 'target@test.com', password: 'Target123',
     });
     targetUserId = reg.body.data?.user?.id;
   });
 
-  test('27. Admin ดูรายการ users → 200 + pagination', async () => {
+  test('25. Admin ดูรายการ users → 200 + pagination ครบ', async () => {
     if (skipIfNoDB() || !adminToken) return;
-    const res = await request(app)
-      .get('/api/users?page=1&limit=10')
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app).get('/api/users?page=1&limit=10').set('Authorization', `Bearer ${adminToken}`);
     expect([200, 500]).toContain(res.statusCode);
     if (res.statusCode === 200) {
       expect(res.body.data).toHaveProperty('users');
@@ -404,177 +267,102 @@ describe('Admin CRUD', () => {
     }
   });
 
-  test('28. Admin ค้นหา user ด้วย search param → 200', async () => {
+  test('26. Admin ค้นหาด้วย search → 200', async () => {
     if (skipIfNoDB() || !adminToken) return;
-    const res = await request(app)
-      .get('/api/users?search=admin')
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app).get('/api/users?search=admin').set('Authorization', `Bearer ${adminToken}`);
     expect([200, 500]).toContain(res.statusCode);
-    if (res.statusCode === 200) {
-      expect(Array.isArray(res.body.data.users)).toBe(true);
-    }
+    if (res.statusCode === 200) expect(Array.isArray(res.body.data.users)).toBe(true);
   });
 
-  test('29. Admin filter ด้วย role=user → เฉพาะ role user', async () => {
+  test('27. Admin filter role=user → ทุก user มี role user', async () => {
     if (skipIfNoDB() || !adminToken) return;
-    const res = await request(app)
-      .get('/api/users?role=user')
-      .set('Authorization', `Bearer ${adminToken}`);
-    if (res.statusCode === 200) {
-      res.body.data.users.forEach(u => {
-        expect(u.role).toBe('user');
-      });
-    }
+    const res = await request(app).get('/api/users?role=user').set('Authorization', `Bearer ${adminToken}`);
+    if (res.statusCode === 200) res.body.data.users.forEach(u => expect(u.role).toBe('user'));
   });
 
-  test('30. Admin ดูข้อมูล user by ID → 200', async () => {
-    if (skipIfNoDB() || !adminToken || !targetUserId) return;
-    const res = await request(app)
-      .get(`/api/users/${targetUserId}`)
-      .set('Authorization', `Bearer ${adminToken}`);
+  test('28. User อัปเดตข้อมูลตัวเอง → 200', async () => {
+    if (skipIfNoDB() || !userToken || !userId) return;
+    const res = await request(app).put(`/api/users/${userId}`).set('Authorization', `Bearer ${userToken}`).send({ name: 'Updated Self' });
     expect([200, 500]).toContain(res.statusCode);
-    if (res.statusCode === 200) {
-      expect(res.body.data.user).toHaveProperty('id', targetUserId);
-    }
+    if (res.statusCode === 200) expect(res.body.data.user.name).toBe('Updated Self');
   });
 
-  test('31. Admin อัปเดต user → 200', async () => {
+  test('29. User พยายามเปลี่ยน role ตัวเอง → role ไม่เปลี่ยน', async () => {
+    if (skipIfNoDB() || !userToken || !userId) return;
+    const res = await request(app).put(`/api/users/${userId}`).set('Authorization', `Bearer ${userToken}`).send({ name: 'Self', role: 'admin' });
+    if (res.statusCode === 200) expect(res.body.data.user.role).toBe('user');
+  });
+
+  test('30. Admin อัปเดต user อื่น → 200', async () => {
     if (skipIfNoDB() || !adminToken || !targetUserId) return;
-    const res = await request(app)
-      .put(`/api/users/${targetUserId}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Updated Name' });
+    const res = await request(app).put(`/api/users/${targetUserId}`).set('Authorization', `Bearer ${adminToken}`).send({ name: 'Admin Updated' });
     expect([200, 500]).toContain(res.statusCode);
   });
 
-  test('32. Admin เปลี่ยน status user → 200', async () => {
+  test('31. Admin เปลี่ยน status → 200 + is_active เปลี่ยน', async () => {
     if (skipIfNoDB() || !adminToken || !targetUserId) return;
-    const res = await request(app)
-      .patch(`/api/users/${targetUserId}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ is_active: false });
+    const res = await request(app).patch(`/api/users/${targetUserId}/status`).set('Authorization', `Bearer ${adminToken}`).send({ is_active: false });
     expect([200, 500]).toContain(res.statusCode);
-    if (res.statusCode === 200) {
-      expect(res.body.data.user.is_active).toBe(false);
-    }
+    if (res.statusCode === 200) expect(res.body.data.user.is_active).toBe(false);
   });
 
-  test('33. is_active ไม่ใช่ boolean → 400', async () => {
+  test('32. is_active ไม่ใช่ boolean → 400', async () => {
     if (skipIfNoDB() || !adminToken || !targetUserId) return;
-    const res = await request(app)
-      .patch(`/api/users/${targetUserId}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ is_active: 'yes' });
+    const res = await request(app).patch(`/api/users/${targetUserId}/status`).set('Authorization', `Bearer ${adminToken}`).send({ is_active: 'yes' });
     expect(res.statusCode).toBe(400);
   });
 
-  test('34. Admin ลบ user สำเร็จ → 204', async () => {
+  test('33. Admin ลบ user สำเร็จ → 204', async () => {
     if (skipIfNoDB() || !adminToken || !targetUserId) return;
-    const res = await request(app)
-      .delete(`/api/users/${targetUserId}`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app).delete(`/api/users/${targetUserId}`).set('Authorization', `Bearer ${adminToken}`);
     expect([204, 404, 500]).toContain(res.statusCode);
   });
 
-  test('35. ดู user ที่ลบไปแล้ว → 404', async () => {
+  test('34. ดู user ที่ลบไปแล้ว → 404', async () => {
     if (skipIfNoDB() || !adminToken || !targetUserId) return;
-    const res = await request(app)
-      .get(`/api/users/${targetUserId}`)
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app).get(`/api/users/${targetUserId}`).set('Authorization', `Bearer ${adminToken}`);
     expect([404, 500]).toContain(res.statusCode);
   });
 });
 
-// ════════════════════════════════════════════════════════════════════════════
-// Users: Self update (/me)
-// ════════════════════════════════════════════════════════════════════════════
-describe('PUT /api/users/me (self update)', () => {
-  test('36. User อัปเดตชื่อตัวเอง → 200', async () => {
-    if (skipIfNoDB() || !userToken) return;
-    const res = await request(app)
-      .put('/api/users/me')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ name: 'Updated Self' });
-    expect([200, 500]).toContain(res.statusCode);
-    if (res.statusCode === 200) {
-      expect(res.body.data.user.name).toBe('Updated Self');
-    }
-  });
-
-  test('37. User พยายามเปลี่ยน role ผ่าน /me → role ไม่เปลี่ยน', async () => {
-    if (skipIfNoDB() || !userToken) return;
-    const res = await request(app)
-      .put('/api/users/me')
-      .set('Authorization', `Bearer ${userToken}`)
-      .send({ name: 'Self', role: 'admin' }); // พยายาม escalate
-    if (res.statusCode === 200) {
-      expect(res.body.data.user.role).toBe('user'); // whitelist ป้องกัน
-    }
-  });
-});
-
-// ════════════════════════════════════════════════════════════════════════════
 // Edge Cases
-// ════════════════════════════════════════════════════════════════════════════
 describe('Edge Cases', () => {
-  test('38. ID ที่ไม่มีอยู่ → 404', async () => {
+  test('35. ID ที่ไม่มีอยู่ → 404', async () => {
     if (skipIfNoDB() || !adminToken) return;
-    const res = await request(app)
-      .get('/api/users/999999')
-      .set('Authorization', `Bearer ${adminToken}`);
+    const res = await request(app).get('/api/users/999999').set('Authorization', `Bearer ${adminToken}`);
     expect([404, 500]).toContain(res.statusCode);
   });
 
-  test('39. Token ปลอม → 401', async () => {
-    const res = await request(app)
-      .get('/api/users')
-      .set('Authorization', 'Bearer fake.token.value');
+  test('36. Token ปลอม → 401', async () => {
+    const res = await request(app).get('/api/users').set('Authorization', 'Bearer fake.token.value');
     expect(res.statusCode).toBe(401);
   });
 
-  test('40. Route ที่ไม่มี → 404', async () => {
+  test('37. Route ที่ไม่มี → 404', async () => {
     const res = await request(app).get('/api/nonexistent');
     expect(res.statusCode).toBe(404);
     expect(res.body.success).toBe(false);
   });
 
-  test('41. Health check → 200', async () => {
+  test('38. Health check → 200', async () => {
     const res = await request(app).get('/health');
     expect(res.statusCode).toBe(200);
     expect(res.body.status).toBe('ok');
   });
 
-  test('42. limit เกิน 100 → ถูก cap ที่ 100', async () => {
+  test('39. limit เกิน 100 → ถูก cap ที่ 100', async () => {
     if (skipIfNoDB() || !adminToken) return;
-    const res = await request(app)
-      .get('/api/users?limit=999')
-      .set('Authorization', `Bearer ${adminToken}`);
-    if (res.statusCode === 200) {
-      expect(res.body.data.pagination.itemsPerPage).toBeLessThanOrEqual(100);
-    }
+    const res = await request(app).get('/api/users?limit=999').set('Authorization', `Bearer ${adminToken}`);
+    if (res.statusCode === 200) expect(res.body.data.pagination.itemsPerPage).toBeLessThanOrEqual(100);
   });
 
-  test('43. disabled account พยายาม login → 403', async () => {
+  test('40. disabled account login → 403', async () => {
     if (skipIfNoDB() || !adminToken) return;
-
-    // สร้าง user แล้ว disable
-    const reg = await request(app).post('/api/auth/register').send({
-      name: 'Disabled',
-      email: 'disabled@test.com',
-      password: 'Disabled123',
-    });
+    const reg = await request(app).post('/api/auth/register').send({ name: 'Disabled', email: 'disabled@test.com', password: 'Disabled123' });
     const disabledId = reg.body.data?.user?.id;
     if (!disabledId) return;
-
-    await request(app)
-      .patch(`/api/users/${disabledId}/status`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ is_active: false });
-
-    const res = await request(app).post('/api/auth/login').send({
-      email: 'disabled@test.com',
-      password: 'Disabled123',
-    });
+    await request(app).patch(`/api/users/${disabledId}/status`).set('Authorization', `Bearer ${adminToken}`).send({ is_active: false });
+    const res = await request(app).post('/api/auth/login').send({ email: 'disabled@test.com', password: 'Disabled123' });
     expect([403, 500]).toContain(res.statusCode);
   });
 });

@@ -2,33 +2,7 @@
 const router = require('express').Router();
 const userController = require('../controllers/userController');
 const { authenticate, authorize } = require('../middlewares/auth');
-const { updateUserValidation, registerValidation } = require('../middlewares/validate');
-
-/**
- * @swagger
- * /api/users:
- *   post:
- *     summary: Create a new user (Admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [name, email, password]
- *             properties:
- *               name: { type: string }
- *               email: { type: string }
- *               password: { type: string }
- *               role: { type: string, enum: [admin, user] }
- *     responses:
- *       201: { description: User created }
- *       409: { description: Email already exists }
- */
-router.post('/', authenticate, authorize('admin'), registerValidation, userController.createUser);
+const { updateUserValidation } = require('../middlewares/validate');
 
 /**
  * @swagger
@@ -87,32 +61,9 @@ router.get('/:id', authenticate, userController.getUserById);
 
 /**
  * @swagger
- * /api/users/me:
- *   put:
- *     summary: Update own profile
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 description: "New name of the user"
- *     responses:
- *       200: { description: Profile updated successfully }
- *       401: { description: Unauthorized }
- */
-router.put('/me', authenticate, userController.updateMe);
-
-/**
- * @swagger
  * /api/users/{id}:
  *   put:
- *     summary: Update user (Admin only)
+ *     summary: Update user (Admin or own account)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -128,14 +79,15 @@ router.put('/me', authenticate, userController.updateMe);
  *             type: object
  *             properties:
  *               name: { type: string }
+ *               email: { type: string }
+ *               password: { type: string }
  *               role: { type: string, enum: [admin, user] }
- *               status: { type: boolean }
  *     responses:
- *       200: { description: User updated successfully }
+ *       200: { description: User updated }
  *       403: { description: Forbidden }
  *       404: { description: Not found }
  */
-router.put('/:id', authenticate, authorize('admin'), userController.updateUser);
+router.put('/:id', authenticate, updateUserValidation, userController.updateUser);
 
 /**
  * @swagger
